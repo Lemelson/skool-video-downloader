@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Skool Video Downloader &amp; Course Archiver — Back Up Your Own Skool Content Offline</title>
+  <meta name="description" content="Free open-source command-line tool to download and back up your own Skool videos, lessons, PDFs and community posts for offline access. Built on Chrome DevTools Protocol, Playwright, yt-dlp and ffmpeg." />
+  <meta name="keywords" content="skool downloader, download skool videos, skool video downloader, skool course downloader, backup skool classroom, archive skool community, save skool lessons offline, skool export tool" />
+  <meta name="author" content="Skool Video Downloader" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://lemelson.github.io/skool-video-downloader/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Skool Video Downloader &amp; Course Archiver" />
+  <meta property="og:description" content="Open-source CLI toolkit to download and back up your own Skool videos, lessons and community posts for offline access." />
+  <meta property="og:url" content="https://lemelson.github.io/skool-video-downloader/" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Skool Video Downloader &amp; Course Archiver" />
+  <meta name="twitter:description" content="Open-source CLI toolkit to download and back up your own Skool content for offline access." />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Skool Video Downloader & Course Archiver",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Windows, Linux",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "description": "Open-source command-line toolkit to download and back up your own Skool videos, lessons, PDFs and community posts for offline access."
+  }
+  </script>
+
+  <style>
+    :root { --bg:#0e1116; --card:#161b22; --fg:#e6edf3; --muted:#9aa7b4; --accent:#4f9dff; --border:#232a33; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--fg); line-height:1.65; }
+    a { color:var(--accent); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .wrap { max-width:860px; margin:0 auto; padding:0 20px; }
+    header { padding:72px 0 40px; text-align:center; border-bottom:1px solid var(--border); }
+    header h1 { font-size:2.3rem; line-height:1.2; margin:0 0 14px; }
+    header p.tag { font-size:1.15rem; color:var(--muted); max-width:640px; margin:0 auto 28px; }
+    .btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+    .btn { display:inline-block; padding:11px 22px; border-radius:8px; font-weight:600; border:1px solid var(--border); }
+    .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .btn.secondary { background:var(--card); color:var(--fg); }
+    section { padding:44px 0; border-bottom:1px solid var(--border); }
+    h2 { font-size:1.5rem; margin:0 0 18px; }
+    h3 { font-size:1.1rem; margin:26px 0 8px; }
+    ul { padding-left:22px; }
+    li { margin:7px 0; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px; }
+    .card h3 { margin-top:0; }
+    pre { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; overflow-x:auto; }
+    code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9rem; }
+    .notice { background:#1d1a10; border:1px solid #4a3f1a; border-radius:10px; padding:18px 20px; }
+    .notice strong { color:#f0c674; }
+    footer { padding:40px 0 64px; text-align:center; color:var(--muted); font-size:.9rem; }
+    table { width:100%; border-collapse:collapse; font-size:.94rem; }
+    th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+    th { color:var(--muted); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Skool Video Downloader &amp; Course Archiver</h1>
+      <p class="tag">A free, open-source command-line toolkit to <strong>download and back up your own Skool videos, lessons, PDFs and community posts</strong> for offline access.</p>
+      <div class="btns">
+        <a class="btn primary" href="https://github.com/Lemelson/skool-video-downloader">View on GitHub</a>
+        <a class="btn secondary" href="https://github.com/Lemelson/skool-video-downloader#readme">Read the docs</a>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <div class="wrap">
+      <h2>What it does</h2>
+      <p>Skool Video Downloader drives a real, logged-in Chrome session over the Chrome DevTools Protocol, so it reuses <em>your own</em> authenticated session and never asks for your password. Point it at content you already have access to and keep a clean, personal offline backup.</p>
+      <div class="grid">
+        <div class="card"><h3>🎥 Download videos</h3><p>Capture the media URLs behind lessons you can access and save the videos locally.</p></div>
+        <div class="card"><h3>📄 Save resources</h3><p>Download attached PDF resources and lesson details in one pass.</p></div>
+        <div class="card"><h3>💬 Archive posts</h3><p>Turn community feed posts you can see into clean offline HTML, Markdown and JSON.</p></div>
+        <div class="card"><h3>🗜️ Optimize storage</h3><p>Re-encode oversized videos down to efficient 1080p to reclaim disk space.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>⚖️ Responsible use</h2>
+      <div class="notice">
+        <p><strong>This project ships only the tooling — no course content.</strong> Use it only to archive material you have lawful, authorized access to (such as a course you purchased or a community you belong to), and only for your own personal, offline use.</p>
+        <p style="margin-bottom:0">Do <strong>not</strong> redistribute, re-upload, resell or publicly share downloaded material. You are responsible for complying with Skool's Terms of Service, the rights of content creators, and the laws of your jurisdiction. A downloader is a neutral tool, like <code>yt-dlp</code> or a browser's "Save As".</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Quick start</h2>
+      <h3>1. Install the toolchain</h3>
+      <pre><code>npm install
+python3 -m pip install -U yt-dlp
+brew install ffmpeg   # or: sudo apt-get install ffmpeg</code></pre>
+      <h3>2. Launch Chrome with remote debugging and log in to Skool</h3>
+      <pre><code>/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 --user-data-dir="$HOME/.skool-archive-chrome"</code></pre>
+      <h3>3. Run a script</h3>
+      <pre><code>export SKOOL_ARCHIVE_ROOT="$HOME/Skool-Backup"
+
+# List the course structure of a classroom you can access
+node scripts/cdp_course_state.js "https://www.skool.com/&lt;community&gt;/classroom/&lt;id&gt;"</code></pre>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Requirements</h2>
+      <table>
+        <tr><th>Tool</th><th>Why</th></tr>
+        <tr><td>Node.js 18+</td><td>Runs the CDP archiver scripts</td></tr>
+        <tr><td>Python 3.9+</td><td>Runs the download &amp; re-encode helpers</td></tr>
+        <tr><td>Google Chrome</td><td>Provides your logged-in session over remote debugging</td></tr>
+        <tr><td>Playwright</td><td>Connects to Chrome over the DevTools Protocol</td></tr>
+        <tr><td>yt-dlp + ffmpeg</td><td>Fetch and mux YouTube-backed media</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <p>Open source under the MIT License · <a href="https://github.com/Lemelson/skool-video-downloader">GitHub</a></p>
+      <p>Independent, unofficial tool. Not affiliated with or endorsed by Skool. "Skool" is a trademark of its respective owner, used descriptively.</p>
+    </div>
+  </footer>
+</body>
+</html>

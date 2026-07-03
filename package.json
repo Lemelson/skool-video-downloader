@@ -1,0 +1,30 @@
+{
+  "name": "skool-video-downloader",
+  "version": "1.0.0",
+  "description": "Command-line toolkit to download and back up your own Skool videos, lessons, and community posts for offline access, using the Chrome DevTools Protocol, Playwright, yt-dlp and ffmpeg.",
+  "keywords": [
+    "skool",
+    "skool-downloader",
+    "skool-video-downloader",
+    "download-skool-videos",
+    "skool-course-downloader",
+    "course-backup",
+    "archive",
+    "offline",
+    "playwright",
+    "yt-dlp",
+    "cdp"
+  ],
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "playwright": "^1.44.0"
+  },
+  "scripts": {
+    "inspect": "node scripts/cdp_inspect.js",
+    "course-state": "node scripts/cdp_course_state.js"
+  }
+}

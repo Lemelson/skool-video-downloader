@@ -1,0 +1,44 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Downloaded / archived media artifacts — keep these local only, never commit.
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.m4a
+*.mp3
+*.wav
+*.pdf
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.part
+
+# Local run output, session data, logs, signed URLs, screenshots.
+*.log
+cdp-inspect.json
+course-state.json
+capture-*.json
+playwright-skool-inspect.json
+.skool-archive-chrome/
+Skool-Backup/
+output/
+archive/
+
+# User-created manifest may describe real course content — keep local.
+manifest.json

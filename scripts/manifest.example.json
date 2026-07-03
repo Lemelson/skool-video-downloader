@@ -1,0 +1,26 @@
+[
+  {
+    "index": 1,
+    "section": "Part 1",
+    "title": "Example Lesson One",
+    "duration": "10:59",
+    "kind": "wistia",
+    "id": "wistiaMediaId1"
+  },
+  {
+    "index": 2,
+    "section": "Part 1",
+    "title": "Example Lesson Two",
+    "duration": "57:30",
+    "kind": "wistia",
+    "id": "wistiaMediaId2"
+  },
+  {
+    "index": 3,
+    "section": "Bonuses",
+    "title": "Example YouTube Lesson",
+    "duration": "",
+    "kind": "youtube",
+    "url": "https://youtu.be/VIDEO_ID"
+  }
+]

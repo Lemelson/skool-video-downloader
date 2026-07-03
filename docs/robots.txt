@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://lemelson.github.io/skool-video-downloader/sitemap.xml
