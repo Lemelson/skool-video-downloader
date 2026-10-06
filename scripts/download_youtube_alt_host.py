@@ -7,6 +7,15 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse, urlunparse
 
 
+env_path = Path(__file__).resolve().parent.parent / ".env"
+if env_path.exists():
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
 YTDLP = os.environ.get("YTDLP", "yt-dlp")
 
 
@@ -119,7 +128,12 @@ def main():
     output = Path(sys.argv[2])
     output.parent.mkdir(parents=True, exist_ok=True)
     data = extract(video_url)
-    video = pick(data["formats"], ["299", "137", "303", "298", "136"])
+    quality = os.environ.get("VIDEO_QUALITY", "720p").lower()
+    if "720" in quality:
+        format_ids = ["136", "298", "22", "137", "299", "303"]
+    else:
+        format_ids = ["299", "137", "303", "298", "136", "22"]
+    video = pick(data["formats"], format_ids)
     audio = pick(data["formats"], ["140", "251"])
 
     tmp_video = output.with_suffix(".video." + video["ext"])

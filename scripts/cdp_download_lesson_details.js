@@ -1,3 +1,4 @@
+require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
@@ -5,9 +6,7 @@ const { chromium } = require('playwright');
 const rootDir = process.env.SKOOL_ARCHIVE_ROOT || process.cwd();
 const collectionName = process.env.SKOOL_COLLECTION_NAME || 'Skool Community';
 const academyDir = path.join(rootDir, collectionName);
-const logsDir = path.join(rootDir, 'Служебные файлы - можно не трогать', '02 Логи и временные ссылки');
-const outPath = path.join(logsDir, 'lesson-details.json');
-const cdpUrl = process.env.CDP_URL || 'http://127.0.0.1:9223';
+const cdpUrl = process.env.CDP_URL || process.env.SKOOL_CDP_URL || 'http://127.0.0.1:9222';
 const courseUrl = process.argv[2] || process.env.SKOOL_CLASSROOM_URL || process.env.SKOOL_COURSE_URL;
 if (!courseUrl) {
   console.error('Usage: node cdp_download_lesson_details.js <classroom-url>');
@@ -123,33 +122,41 @@ function buildVideoIndex() {
   const index = new Map();
   if (!fs.existsSync(academyDir)) return index;
 
-  for (const section of fs.readdirSync(academyDir, { withFileTypes: true })) {
-    if (!section.isDirectory()) continue;
-    const sectionDir = path.join(academyDir, section.name);
-    for (const file of fs.readdirSync(sectionDir, { withFileTypes: true })) {
-      if (!file.isFile() || !/\.mp4$/i.test(file.name)) continue;
-      const match = file.name.match(/^(\d+)\s+-\s+(.+)\.mp4$/i);
-      if (!match) continue;
-      const number = match[1];
-      const title = stripDuration(match[2]);
-      index.set(`${section.name}\n${comparableTitle(title)}`, { number, title, dir: sectionDir });
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (entry.isFile() && /\.mp4$/i.test(entry.name)) {
+        const match = entry.name.match(/^(\d+)\s+-\s+(.+)\.mp4$/i);
+        if (!match) continue;
+        const number = match[1];
+        const title = stripDuration(match[2]);
+        const sectionName = path.basename(dir);
+        index.set(`${sectionName}\n${comparableTitle(title)}`, { number, title, dir });
+        index.set(`${comparableTitle(title)}`, { number, title, dir });
+      }
     }
   }
+  walk(academyDir);
   return index;
 }
 
-function moduleLocation(row, fallbackNumber, videoIndex) {
-  const section = safeName(row.section || 'Resources');
+function moduleLocation(row, fallbackNumber, videoIndex, courseTitle) {
+  const cTitle = safeName(courseTitle || 'Course Material');
+  const courseDir = path.join(academyDir, cTitle);
+  const resourcesDir = path.join(courseDir, 'resources');
+  const sectionName = row.section ? safeName(row.section) : '';
+  const dir = (sectionName && sectionName !== cTitle) ? path.join(resourcesDir, sectionName) : resourcesDir;
   const lessonTitle = stripDuration(row.title);
-  const hit = videoIndex.get(`${section}\n${comparableTitle(lessonTitle)}`);
+  const hit = videoIndex.get(`${sectionName}\n${comparableTitle(lessonTitle)}`);
   const number = hit?.number || String(fallbackNumber).padStart(2, '0');
-  const dir = hit?.dir || path.join(academyDir, section);
   fs.mkdirSync(dir, { recursive: true });
   return { number, dir, lessonTitle };
 }
 
-function resourceDestination(row, resource, fallbackNumber, videoIndex) {
-  const { number, dir, lessonTitle } = moduleLocation(row, fallbackNumber, videoIndex);
+function resourceDestination(row, resource, fallbackNumber, videoIndex, courseTitle) {
+  const { number, dir, lessonTitle } = moduleLocation(row, fallbackNumber, videoIndex, courseTitle);
   const ext = resource.file_id ? extensionFor(resource) : extensionFromLink(resource);
   const resourceStem = stripExt(resource.title || resource.file_name || 'Resource');
   const sameAsLesson = comparableTitle(resourceStem) === comparableTitle(lessonTitle);
@@ -157,8 +164,8 @@ function resourceDestination(row, resource, fallbackNumber, videoIndex) {
   return path.join(dir, `${number} - ${safeName(stem)}${ext}`);
 }
 
-function notesDestination(row, fallbackNumber, videoIndex, ext) {
-  const { number, dir, lessonTitle } = moduleLocation(row, fallbackNumber, videoIndex);
+function notesDestination(row, fallbackNumber, videoIndex, ext, courseTitle) {
+  const { number, dir, lessonTitle } = moduleLocation(row, fallbackNumber, videoIndex, courseTitle);
   return path.join(dir, `${number} - ${safeName(lessonTitle)} - Notes${ext}`);
 }
 
@@ -421,6 +428,10 @@ async function downloadGoogleDrive(link) {
   }
   rows = enrichedRows;
 
+  const mainCourseTitle = safeName(root?.course?.metadata?.title || root?.metadata?.title || 'Course Material');
+  const courseDir = path.join(academyDir, mainCourseTitle);
+  fs.mkdirSync(courseDir, { recursive: true });
+
   const videoIndex = buildVideoIndex();
   const details = [];
   let fallbackNumber = 1;
@@ -428,8 +439,8 @@ async function downloadGoogleDrive(link) {
   for (const row of rows) {
     const descHtml = descToHtml(row.desc);
     const descMarkdown = descToMarkdown(row.desc);
-    const noteHtmlPath = descHtml ? notesDestination(row, fallbackNumber, videoIndex, '.html') : null;
-    const noteMdPath = descMarkdown ? notesDestination(row, fallbackNumber, videoIndex, '.md') : null;
+    const noteHtmlPath = descHtml ? notesDestination(row, fallbackNumber, videoIndex, '.html', mainCourseTitle) : null;
+    const noteMdPath = descMarkdown ? notesDestination(row, fallbackNumber, videoIndex, '.md', mainCourseTitle) : null;
 
     if (descHtml && noteHtmlPath) {
       fs.writeFileSync(noteHtmlPath, `<!doctype html>
@@ -464,7 +475,7 @@ ${descHtml}
       };
 
       if (resource.file_id) {
-        const dest = resourceDestination(row, resource, fallbackNumber, videoIndex);
+        const dest = resourceDestination(row, resource, fallbackNumber, videoIndex, mainCourseTitle);
         record.localPath = dest;
         if (!fs.existsSync(dest) || fs.statSync(dest).size < 128) {
           const signedUrl = await getSignedUrl(page, resource.file_id);
@@ -476,7 +487,7 @@ ${descHtml}
           console.log(`skip ${dest}`);
         }
       } else if (resource.link && googleDriveFileId(resource.link)) {
-        const dest = resourceDestination(row, resource, fallbackNumber, videoIndex);
+        const dest = resourceDestination(row, resource, fallbackNumber, videoIndex, mainCourseTitle);
         record.localPath = dest;
         if (!fs.existsSync(dest) || fs.statSync(dest).size < 1024) {
           const body = await downloadGoogleDrive(resource.link);
@@ -491,6 +502,7 @@ ${descHtml}
     }
 
     details.push({
+      courseTitle: mainCourseTitle,
       section: row.section,
       moduleId: row.id,
       moduleTitle: row.title,
@@ -505,9 +517,14 @@ ${descHtml}
     fallbackNumber += 1;
   }
 
-  fs.mkdirSync(logsDir, { recursive: true });
-  fs.writeFileSync(outPath, JSON.stringify(details, null, 2));
-  console.log(`wrote ${outPath}`);
+  const courseDetailsPath = path.join(courseDir, 'lesson-details.json');
+  fs.writeFileSync(courseDetailsPath, JSON.stringify(details, null, 2));
+  console.log(`wrote ${courseDetailsPath}`);
+
+  // Also save a top-level copy for convenience
+  const rootDetailsPath = path.join(rootDir, 'lesson-details.json');
+  fs.writeFileSync(rootDetailsPath, JSON.stringify(details, null, 2));
+
   await browser.close();
 })().catch(err => {
   console.error(err);

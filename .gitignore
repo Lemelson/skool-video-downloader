@@ -39,6 +39,10 @@ playwright-skool-inspect.json
 Skool-Backup/
 output/
 archive/
+package-lock.json
 
 # User-created manifest may describe real course content — keep local.
 manifest.json
+
+# Environment variables and secrets — keep local.
+.env

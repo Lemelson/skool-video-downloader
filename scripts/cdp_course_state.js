@@ -1,3 +1,4 @@
+require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
@@ -11,12 +12,27 @@ if (!classroomUrl) {
   process.exit(2);
 }
 
-function walkCourse(node, section, rows) {
-  const course = node.course || {};
+function safeName(name) {
+  return String(name || 'Course Material')
+    .replace(/[/:]/g, '-')
+    .replace(/[?*"<>|]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function walkCourse(node, section, rows, courseTitle = '') {
+  if (!node) return;
+  const course = node.course || node;
   const meta = course.metadata || {};
+  let currentCourseTitle = courseTitle;
+  if (course.unitType === 'course') {
+    currentCourseTitle = meta.title || course.name || currentCourseTitle;
+  }
   if (course.unitType === 'set') section = meta.title || section;
   if (course.unitType === 'module') {
     rows.push({
+      type: 'module',
+      courseTitle: currentCourseTitle || 'Course Material',
       section,
       id: course.id,
       title: meta.title || '',
@@ -25,8 +41,17 @@ function walkCourse(node, section, rows) {
       videoLink: meta.videoLink || null,
       videoLenMs: meta.videoLenMs ?? null,
     });
+  } else if (course.unitType === 'course') {
+    rows.push({
+      type: 'course',
+      id: course.id,
+      title: meta.title || course.name || '',
+      hasAccess: meta.hasAccess ?? null,
+      numModules: meta.numModules ?? 0,
+      description: meta.desc || '',
+    });
   }
-  for (const child of node.children || []) walkCourse(child, section, rows);
+  for (const child of node.children || []) walkCourse(child, section || meta.title, rows, currentCourseTitle);
 }
 
 (async () => {
@@ -43,11 +68,45 @@ function walkCourse(node, section, rows) {
     throw new Error(`No __NEXT_DATA__. Body starts with: ${text}`);
   }
   const data = JSON.parse(raw);
-  const root = data.props.pageProps.course || data.props.pageProps.renderData?.course;
+  const pp = data.props?.pageProps || {};
+  const root = pp.course || pp.renderData?.course;
   const rows = [];
-  walkCourse(root, null, rows);
 
+  let mainCourseTitle = 'Course Material';
+  if (root) {
+    mainCourseTitle = safeName(root?.course?.metadata?.title || root?.metadata?.title || root?.name || 'Course Material');
+    walkCourse(root, null, rows, mainCourseTitle);
+  } else if (pp.allCourses && Array.isArray(pp.allCourses)) {
+    for (const c of pp.allCourses) {
+      const cTitle = safeName(c.metadata?.title || c.name || 'Course Material');
+      if (c.children && c.children.length > 0) {
+        walkCourse(c, null, rows, cTitle);
+      } else {
+        const meta = c.metadata || {};
+        rows.push({
+          type: 'course',
+          id: c.id,
+          title: meta.title || c.name || '',
+          hasAccess: meta.hasAccess ?? null,
+          numModules: meta.numModules ?? 0,
+          description: meta.desc || '',
+          url: `${classroomUrl.replace(/\/$/, '')}/${c.id}`
+        });
+      }
+    }
+  }
+
+  fs.mkdirSync(rootDir, { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(rows, null, 2));
+
+  const collectionName = process.env.SKOOL_COLLECTION_NAME || 'Skool Community';
+  const academyDir = path.join(rootDir, collectionName);
+  const firstModuleCourseTitle = rows.find(r => r.type === 'module' && r.courseTitle)?.courseTitle || mainCourseTitle;
+  if (firstModuleCourseTitle) {
+    const courseDir = path.join(academyDir, safeName(firstModuleCourseTitle));
+    fs.mkdirSync(courseDir, { recursive: true });
+    fs.writeFileSync(path.join(courseDir, 'course-state.json'), JSON.stringify(rows, null, 2));
+  }
   for (const row of rows) console.log(JSON.stringify(row));
   await browser.close();
 })().catch(err => {
