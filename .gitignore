@@ -33,10 +33,17 @@ __pycache__/
 *.log
 cdp-inspect.json
 course-state.json
+lesson-details.json
+pdf-resources.json
 capture-*.json
 playwright-skool-inspect.json
 .skool-archive-chrome/
+.skool-archive-brave/
 Skool-Backup/
+# Default archive folder (SKOOL_COLLECTION_NAME) and the local browser profile
+# folder — they hold real course notes, posts and session data.
+Skool Community/
+Служебные файлы - можно не трогать/
 output/
 archive/
 package-lock.json
@@ -46,3 +53,5 @@ manifest.json
 
 # Environment variables and secrets — keep local.
 .env
+.env.*
+!.env.example

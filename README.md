@@ -86,6 +86,8 @@ cp .env.example .env
 
 Most scripts also accept the relevant URL as a command-line argument, which takes priority over `.env`.
 
+> **Keep downloads out of the repo.** Point `SKOOL_ARCHIVE_ROOT` at a folder outside this checkout (the example uses `~/Downloads/Skool-Backup`). Downloaded lessons, notes and posts are other people's content and must never be committed or pushed; `.gitignore` covers the default locations, but a custom folder inside the repo would not be ignored. `.env` itself only holds paths and URLs (no passwords or cookies) and is git-ignored too.
+
 ---
 
 ## 🌐 Start the browser with remote debugging
