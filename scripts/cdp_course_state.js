@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('./load_env');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
@@ -55,7 +55,7 @@ function walkCourse(node, section, rows, courseTitle = '') {
 }
 
 (async () => {
-  const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
+  const browser = await chromium.connectOverCDP(process.env.SKOOL_CDP_URL || 'http://127.0.0.1:9222');
   const context = browser.contexts()[0];
   let page = context.pages().find(p => p.url().includes('skool.com/') && p.url().includes('/classroom'));
   if (!page) page = await context.newPage();
@@ -99,9 +99,11 @@ function walkCourse(node, section, rows, courseTitle = '') {
   fs.mkdirSync(rootDir, { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(rows, null, 2));
 
+  // For a single course, keep a copy next to its videos. A classroom-level listing
+  // (allCourses) has no course of its own, so it only goes to course-state.json above.
   const collectionName = process.env.SKOOL_COLLECTION_NAME || 'Skool Community';
   const academyDir = path.join(rootDir, collectionName);
-  const firstModuleCourseTitle = rows.find(r => r.type === 'module' && r.courseTitle)?.courseTitle || mainCourseTitle;
+  const firstModuleCourseTitle = rows.find(r => r.type === 'module' && r.courseTitle)?.courseTitle || (root && mainCourseTitle);
   if (firstModuleCourseTitle) {
     const courseDir = path.join(academyDir, safeName(firstModuleCourseTitle));
     fs.mkdirSync(courseDir, { recursive: true });

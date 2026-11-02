@@ -1,7 +1,9 @@
-require('dotenv').config();
+require('./load_env');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
+
+const downloadAll = path.join(__dirname, 'download_all.js');
 
 const classroomUrl = process.argv[2] || process.env.SKOOL_CLASSROOM_URL;
 
@@ -15,7 +17,7 @@ try {
   console.log(`\n==================================================`);
   console.log(`[1/2] Fetching list of all courses in classroom: ${classroomUrl}`);
   console.log(`==================================================\n`);
-  execSync(`node -r dotenv/config scripts/cdp_course_state.js "${classroomUrl}"`, { stdio: 'inherit' });
+  execFileSync(process.execPath, [path.join(__dirname, 'cdp_course_state.js'), classroomUrl], { stdio: 'inherit' });
 
   const rootDir = process.env.SKOOL_ARCHIVE_ROOT || process.cwd();
   const stateFile = path.join(rootDir, 'course-state.json');
@@ -30,11 +32,12 @@ try {
 
   if (courses.length === 0) {
     console.log(`[INFO] No multiple course list found, treating URL as a single course...`);
-    execSync(`node scripts/download_all.js "${classroomUrl}"`, { stdio: 'inherit' });
+    execFileSync(process.execPath, [downloadAll, classroomUrl], { stdio: 'inherit' });
     process.exit(0);
   }
 
   console.log(`\nFound ${courses.length} courses to download.\n`);
+  const failed = [];
 
   for (let i = 0; i < courses.length; i++) {
     const c = courses[i];
@@ -44,15 +47,21 @@ try {
     console.log(`==================================================\n`);
 
     try {
-      execSync(`node scripts/download_all.js "${c.url}"`, { stdio: 'inherit' });
+      execFileSync(process.execPath, [downloadAll, c.url], { stdio: 'inherit' });
     } catch (err) {
       console.error(`[ERROR] Failed to download course ${c.title}:`, err.message);
+      failed.push(c.title);
     }
   }
 
   console.log(`\n==================================================`);
-  console.log(`[SUCCESS] All courses in the classroom have been processed!`);
+  if (failed.length) {
+    console.log(`[DONE] ${courses.length - failed.length}/${courses.length} courses downloaded. Failed: ${failed.join(', ')}`);
+  } else {
+    console.log(`[SUCCESS] All courses in the classroom have been processed!`);
+  }
   console.log(`==================================================\n`);
+  if (failed.length) process.exit(1);
 } catch (err) {
   console.error(`\n[ERROR] An error occurred during download:everything:`, err.message);
   process.exit(1);
