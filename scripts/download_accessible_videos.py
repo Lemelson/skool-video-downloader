@@ -5,10 +5,12 @@ Usage:
     python3 download_accessible_videos.py [path/to/manifest.json | path/to/course-state.json]
 
 Environment:
-    SKOOL_MANIFEST         Path to the manifest JSON (default: auto-detects manifest.json, course-state.json, or lesson-details.json).
-    SKOOL_ARCHIVE_ROOT     Root output folder (default: current directory or from .env).
-    SKOOL_COLLECTION_NAME  Sub-folder name under the root (default: "Skool Community" or "Skool").
-    VIDEO_QUALITY          Video quality preference (720p, 1080p, best).
+    SKOOL_MANIFEST         Path to the manifest JSON (default: ./manifest.json, then the newest
+                           course-state.json / lesson-details.json under the archive).
+    SKOOL_ARCHIVE_ROOT     Root output folder (default: current directory).
+    SKOOL_COLLECTION_NAME  Sub-folder name under the root (default: "Skool Community").
+    VIDEO_QUALITY          720p, 1080p (default) or best.
+    YTDLP                  Path to yt-dlp (default: yt-dlp on PATH).
 """
 import json
 import os
@@ -19,14 +21,9 @@ import sys
 import urllib.request
 from pathlib import Path
 
-env_path = Path(__file__).resolve().parent.parent / ".env"
-if env_path.exists():
-    with open(env_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip())
+from skool_env import load_env, video_quality
+
+load_env()
 
 ROOT = Path(os.environ.get("SKOOL_ARCHIVE_ROOT", Path.cwd()))
 COLLECTION_NAME = os.environ.get("SKOOL_COLLECTION_NAME", "Skool Community")
@@ -39,7 +36,9 @@ def log(msg: str) -> None:
 
 def convert_state_to_manifest(data: list, found_path: Path = None) -> list:
     items = []
-    idx = 1
+    # Number lessons per course in the same order cdp_download_lesson_details.js does
+    # (every lesson counts, with or without a video), so videos and notes share numbers.
+    lesson_numbers = {}
 
     inferred_course_title = ""
     if found_path:
@@ -65,6 +64,11 @@ def convert_state_to_manifest(data: list, found_path: Path = None) -> list:
             title = row.get("title") or row.get("courseTitle") or row.get("course_title")
             if title:
                 current_course_title = title
+            continue
+
+        course_title = row.get("courseTitle") or row.get("course_title") or current_course_title or "Course Material"
+        idx = lesson_numbers.get(course_title, 0) + 1
+        lesson_numbers[course_title] = idx
 
         vlink = row.get("videoLink") or row.get("video_url")
         if not vlink and "resources" in row:
@@ -77,7 +81,6 @@ def convert_state_to_manifest(data: list, found_path: Path = None) -> list:
         if not vlink:
             continue
 
-        course_title = row.get("courseTitle") or row.get("course_title") or current_course_title or "Course Material"
         section = row.get("section") or ""
         title = row.get("title") or row.get("moduleTitle") or f"Lesson {idx}"
         duration = ""
@@ -107,7 +110,6 @@ def convert_state_to_manifest(data: list, found_path: Path = None) -> list:
         if v_id:
             item["id"] = v_id
         items.append(item)
-        idx += 1
     return items
 
 
@@ -128,6 +130,9 @@ def load_manifest() -> list:
     if env_manifest:
         candidate_paths.append(Path(env_manifest))
 
+    # A hand-written ./manifest.json was the original default; keep it ahead of auto-detection.
+    candidate_paths.append(Path.cwd() / "manifest.json")
+
     # Sort nested state files by modification time (mtime) descending.
     # Prioritize course-state.json over lesson-details.json because course-state.json contains the direct videoLinks.
     course_state_files = sorted(list(FINAL_ROOT.rglob("course-state.json")), key=lambda p: p.stat().st_mtime if p.exists() else 0, reverse=True)
@@ -136,7 +141,7 @@ def load_manifest() -> list:
     for sub in course_state_files + lesson_detail_files:
         candidate_paths.append(sub)
 
-    candidate_names = ["course-state.json", "lesson-details.json", "manifest.json"]
+    candidate_names = ["course-state.json", "lesson-details.json"]
     for name in candidate_names:
         candidate_paths.append(FINAL_ROOT / name)
         candidate_paths.append(ROOT / name)
@@ -174,15 +179,25 @@ def safe_name(name: str) -> str:
     return name.replace("/", "-").replace(":", "꞉").strip()
 
 
-def target_path(item: dict) -> Path:
-    raw_course = item.get("courseTitle", "").strip() or "Course Material"
-    course_title = safe_name(raw_course)
-    section_name = safe_name(item.get("section", ""))
+def course_dir_name(name: str) -> str:
+    """Same rules as safeName() in the Node scripts, so videos and notes land in one course folder."""
+    name = re.sub(r"[/:]", "-", name or "Course Material")
+    name = re.sub(r'[?*"<>|]', "", name)
+    return re.sub(r"\s+", " ", name).strip()
 
-    if course_title and section_name and section_name != course_title:
-        section_dir = FINAL_ROOT / course_title / section_name
+
+def target_path(item: dict) -> Path:
+    section_name = safe_name(item.get("section") or "")
+    raw_course = (item.get("courseTitle") or "").strip()
+    if not raw_course:
+        # Hand-written manifest (no course info): original <collection>/<section>/ layout.
+        section_dir = FINAL_ROOT / section_name
     else:
-        section_dir = FINAL_ROOT / course_title
+        course_title = course_dir_name(raw_course)
+        if section_name and section_name != safe_name(raw_course) and section_name != course_title:
+            section_dir = FINAL_ROOT / course_title / section_name
+        else:
+            section_dir = FINAL_ROOT / course_title
 
     section_dir.mkdir(parents=True, exist_ok=True)
     if item.get("duration"):
@@ -214,13 +229,31 @@ def is_valid_video(path: Path) -> bool:
         return False
 
 
+# Wistia display names in order of preference for each VIDEO_QUALITY.
+# 1080p is the original behaviour of this script (1080p, then 4k, then 720p...).
+WISTIA_PREFERENCE = {
+    "1080p": ["1080p", "4k", "720p"],
+    "720p": ["720p", "540p", "1080p", "360p", "4k"],
+}
+WISTIA_TYPE_FALLBACK = ["hd_mp4_video", "md_mp4_video", "mp4_video", "iphone_video", "original"]
+
+
+def asset_rank(quality: str, display: str, asset_type: str) -> int:
+    preferred = WISTIA_PREFERENCE[quality]
+    if display in preferred:
+        return 1000 - preferred.index(display)
+    if asset_type in WISTIA_TYPE_FALLBACK:
+        return 500 - WISTIA_TYPE_FALLBACK.index(asset_type)
+    return 0
+
+
 def choose_wistia_asset(media_id: str) -> str:
     url = f"https://fast.wistia.com/embed/medias/{media_id}.json"
     with urllib.request.urlopen(url) as resp:
         obj = json.load(resp)
     assets = obj["media"]["assets"]
     candidates = []
-    target_quality = os.environ.get("VIDEO_QUALITY", "720p").lower()
+    quality = video_quality()
     for asset in assets:
         if asset.get("status") != 2:
             continue
@@ -233,21 +266,11 @@ def choose_wistia_asset(media_id: str) -> str:
         width = asset.get("width") or 0
         height = asset.get("height") or 0
         size = asset.get("size") or 0
-        score = 0
-        if target_quality in display:
-            score = 1000
-        elif display == "720p":
-            score = 300
-        elif display == "1080p":
-            score = 250
-        elif display == "4k":
-            score = 200
-        elif asset.get("type") == "hd_mp4_video":
-            score = 150
-        elif asset.get("type") == "md_mp4_video":
-            score = 100
+        if quality == "best":
+            # Highest resolution wins; rank only breaks ties between equal sizes.
+            score = width * height
         else:
-            score = 10
+            score = asset_rank(quality, display, asset.get("type"))
         candidates.append((score, width * height, -size, asset_url))
     if not candidates:
         raise RuntimeError(f"No downloadable mp4 asset found for Wistia id {media_id}")
@@ -267,16 +290,15 @@ def download_file(url: str, dest: Path) -> None:
 
 def download_youtube(url: str, dest: Path) -> None:
     tmp_template = str(dest.with_suffix(".%(ext)s"))
-    quality = os.environ.get("VIDEO_QUALITY", "720p").lower()
-    if "720" in quality:
-        fmt = "bv*[height<=720]+ba/b[height<=720]/b"
-    elif "1080" in quality:
-        fmt = "bv*[height<=1080]+ba/b[height<=1080]/b"
+    quality = video_quality()
+    if quality == "best":
+        fmt = "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b"
     else:
-        fmt = "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b"
+        h = 720 if quality == "720p" else 1080
+        fmt = f"bv*[height<={h}][ext=mp4]+ba[ext=m4a]/b[height<={h}][ext=mp4]/bv*[height<={h}]+ba/b[height<={h}]/b"
 
     cmd = [
-        os.environ.get("YTDLP", "yt-dlp"),
+        os.environ.get("YTDLP") or "yt-dlp",
         "--no-playlist",
         "--merge-output-format",
         "mp4",
@@ -304,7 +326,8 @@ def main() -> int:
     FINAL_ROOT.mkdir(parents=True, exist_ok=True)
     remove_partial_files()
 
-    log(f"[INFO] Found {len(manifest)} video(s) to process.")
+    log(f"[INFO] Found {len(manifest)} video(s) to process (VIDEO_QUALITY={video_quality()}).")
+    failed = []
     for item in manifest:
         dest = target_path(item)
         if is_valid_video(dest):
@@ -314,17 +337,28 @@ def main() -> int:
             log(f"[RETRY] Removed corrupted file: {dest}")
             dest.unlink()
         log(f"[DOWNLOADING] {dest.name}...")
-        if item["kind"] == "wistia":
-            asset_url = choose_wistia_asset(item["id"])
-            download_file(asset_url, dest)
-        else:
-            download_youtube(item["url"], dest)
+        try:
+            if item["kind"] == "wistia":
+                asset_url = choose_wistia_asset(item["id"])
+                download_file(asset_url, dest)
+            else:
+                download_youtube(item["url"], dest)
+        except Exception as exc:  # keep going; one broken lesson shouldn't stop the batch
+            log(f"[ERROR] {dest.name}: {exc}")
+            failed.append(dest)
+            continue
 
         if not is_valid_video(dest):
             log(f"[WARNING] Video file verification failed: {dest}")
+            failed.append(dest)
         else:
             log(f"[OK] Successfully downloaded: {dest.name}")
 
+    if failed:
+        log(f"[DONE] {len(failed)} of {len(manifest)} video(s) failed; re-run to retry:")
+        for dest in failed:
+            log(f"  - {dest}")
+        return 1
     log("[SUCCESS] Video download process completed.")
     return 0
 

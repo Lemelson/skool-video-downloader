@@ -5,21 +5,19 @@ import subprocess
 import sys
 from pathlib import Path
 
-env_path = Path(__file__).resolve().parent.parent / ".env"
-if env_path.exists():
-    with open(env_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip())
+from skool_env import load_env, video_quality
+
+load_env()
 
 ARCHIVE_ROOT = Path(os.environ.get("SKOOL_ARCHIVE_ROOT", Path.cwd()))
 COLLECTION_NAME = os.environ.get("SKOOL_COLLECTION_NAME", "Skool Community")
 ROOT = ARCHIVE_ROOT / COLLECTION_NAME
-QUALITY = os.environ.get("VIDEO_QUALITY", "720p").lower()
-TARGET_WIDTH = 1280 if "720" in QUALITY else 1920
-TARGET_HEIGHT = 720 if "720" in QUALITY else 1080
+# VIDEO_QUALITY=720p caps at 1280x720; 1080p (default) and best cap at 1920x1080.
+QUALITY = video_quality()
+if QUALITY == "720p":
+    TARGET_WIDTH, TARGET_HEIGHT, MAXRATE, BUFSIZE = 1280, 720, "3500k", "7000k"
+else:
+    TARGET_WIDTH, TARGET_HEIGHT, MAXRATE, BUFSIZE = 1920, 1080, "5M", "10M"
 
 
 def probe(path: Path) -> dict:
@@ -69,37 +67,55 @@ def transcode(path: Path) -> None:
         "-crf",
         "22",
         "-maxrate",
-        "3500k",
+        MAXRATE,
         "-bufsize",
-        "7000k",
+        BUFSIZE,
+        "-pix_fmt",
+        "yuv420p",
         "-c:a",
         "aac",
         "-b:a",
         "160k",
+        "-movflags",
+        "+faststart",
         str(tmp),
     ]
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.run(cmd, check=True)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+    old_size = path.stat().st_size
+    new_size = tmp.stat().st_size if tmp.exists() else 0
+    if new_size <= 0 or new_size >= old_size:
+        tmp.unlink(missing_ok=True)
+        print(f"keep original {path.name}", flush=True)
+        return
     tmp.replace(path)
+    print(f"optimized {path.name}: {old_size} -> {new_size}", flush=True)
 
 
-def main():
+def main() -> int:
     if not ROOT.exists():
         print(f"Directory {ROOT} does not exist", file=sys.stderr)
         return 1
 
-    for path in ROOT.rglob("*.mp4"):
+    failed = 0
+    for path in sorted(ROOT.rglob("*.mp4")):
         if path.name.endswith(".optimized.mp4"):
             continue
         try:
             meta = probe(path)
             if should_transcode(meta):
-                print(f"Optimizing {path.relative_to(ROOT)} to max {TARGET_WIDTH}x{TARGET_HEIGHT}...")
+                print(f"Optimizing {path.relative_to(ROOT)} to max {TARGET_WIDTH}x{TARGET_HEIGHT}...", flush=True)
                 transcode(path)
             else:
-                print(f"Skipping {path.relative_to(ROOT)} (already optimal)")
+                print(f"Skipping {path.relative_to(ROOT)} (already optimal)", flush=True)
         except Exception as e:
-            print(f"Error checking {path}: {e}", file=sys.stderr)
+            failed += 1
+            print(f"Error processing {path}: {e}", file=sys.stderr, flush=True)
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main() or 0)
+    sys.exit(main())
