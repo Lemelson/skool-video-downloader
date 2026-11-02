@@ -26,15 +26,16 @@
   },
   "scripts": {
     "launch:brave": "bash ./scripts/launch_brave_cdp.sh",
-    "inspect": "node -r dotenv/config scripts/cdp_inspect.js",
-    "course:state": "node -r dotenv/config scripts/cdp_course_state.js",
-    "download:details": "node -r dotenv/config scripts/cdp_download_lesson_details.js",
-    "download:pdf": "node -r dotenv/config scripts/cdp_download_pdf_resources.js",
+    "inspect": "node scripts/cdp_inspect.js",
+    "course:state": "node scripts/cdp_course_state.js",
+    "course-state": "node scripts/cdp_course_state.js",
+    "download:details": "node scripts/cdp_download_lesson_details.js",
+    "download:pdf": "node scripts/cdp_download_pdf_resources.js",
     "download:videos": "python3 scripts/download_accessible_videos.py",
     "download:all": "node scripts/download_all.js",
     "download:everything": "node scripts/download_everything.js",
-    "archive:community": "node -r dotenv/config scripts/cdp_archive_skool_community.js",
-    "archive:post": "node -r dotenv/config scripts/cdp_archive_skool_post.js",
+    "archive:community": "node scripts/cdp_archive_skool_community.js",
+    "archive:post": "node scripts/cdp_archive_skool_post.js",
     "optimize:videos": "python3 scripts/optimize_videos_1080p.py"
   }
 }

@@ -1,3 +1,4 @@
+require('./load_env');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
@@ -134,7 +135,7 @@ async function downloadBody(url) {
 }
 
 (async () => {
-  const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
+  const browser = await chromium.connectOverCDP(process.env.SKOOL_CDP_URL || 'http://127.0.0.1:9222');
   const context = browser.contexts()[0];
   const page = context.pages().find(p => p.url().includes('skool.com/') && p.url().includes('/classroom')) || await context.newPage();
 

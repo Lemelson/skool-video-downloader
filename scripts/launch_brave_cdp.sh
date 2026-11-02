@@ -1,21 +1,26 @@
 #!/bin/bash
 
 ###############################################################################
-# Script to launch Brave Browser with Chrome DevTools Protocol (CDP) port open (9222).
-# Enables integration with tools such as skool-video-downloader.
+# Launch Brave Browser (macOS) with the Chrome DevTools Protocol (CDP) port open,
+# using a separate profile, so the scripts in this repo can attach to it.
+#
+# Usage: scripts/launch_brave_cdp.sh [port]        (default port: 9222)
+# Env:   SKOOL_BRAVE_PROFILE  profile dir  (default: ~/.skool-archive-brave)
+#        BRAVE_PATH           browser binary (default: the standard macOS install)
 ###############################################################################
 
 PORT="${1:-9222}"
 USER_DATA_DIR="${SKOOL_BRAVE_PROFILE:-$HOME/.skool-archive-brave}"
-BRAVE_PATH="/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+BRAVE_PATH="${BRAVE_PATH:-/Applications/Brave Browser.app/Contents/MacOS/Brave Browser}"
 
-if lsof -i :"$PORT" >/dev/null 2>&1; then
-  echo "[INFO] Port $PORT is already in use. Browser with CDP is likely already running."
+if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "[INFO] Something is already listening on port $PORT. Browser with CDP is likely already running."
   exit 0
 fi
 
-if [ ! -f "$BRAVE_PATH" ]; then
-  echo "[ERROR] Brave Browser not found at path: $BRAVE_PATH"
+if [ ! -x "$BRAVE_PATH" ]; then
+  echo "[ERROR] Brave Browser not found at: $BRAVE_PATH"
+  echo "        Install Brave, or set BRAVE_PATH to the browser binary."
   exit 1
 fi
 
@@ -26,3 +31,6 @@ echo "[INFO] User data profile: $USER_DATA_DIR"
 
 echo "[SUCCESS] Brave Browser has been launched in the background."
 echo "[TIP] Log in to the Skool platform in the newly opened browser window."
+if [ "$PORT" != "9222" ]; then
+  echo "[TIP] Non-default port: set SKOOL_CDP_URL=http://127.0.0.1:$PORT in .env so the scripts can find it."
+fi

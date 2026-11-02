@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('./load_env');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
 const rootDir = process.env.SKOOL_ARCHIVE_ROOT || process.cwd();
 const collectionName = process.env.SKOOL_COLLECTION_NAME || 'Skool Community';
 const academyDir = path.join(rootDir, collectionName);
-const cdpUrl = process.env.CDP_URL || process.env.SKOOL_CDP_URL || 'http://127.0.0.1:9222';
+const cdpUrl = process.env.SKOOL_CDP_URL || process.env.CDP_URL || 'http://127.0.0.1:9222';
 const courseUrl = process.argv[2] || process.env.SKOOL_CLASSROOM_URL || process.env.SKOOL_COURSE_URL;
 if (!courseUrl) {
   console.error('Usage: node cdp_download_lesson_details.js <classroom-url>');
