@@ -5,10 +5,19 @@ import subprocess
 import sys
 from pathlib import Path
 
+from skool_env import load_env, video_quality
+
+load_env()
 
 ARCHIVE_ROOT = Path(os.environ.get("SKOOL_ARCHIVE_ROOT", Path.cwd()))
 COLLECTION_NAME = os.environ.get("SKOOL_COLLECTION_NAME", "Skool Community")
 ROOT = ARCHIVE_ROOT / COLLECTION_NAME
+# VIDEO_QUALITY=720p caps at 1280x720; 1080p (default) and best cap at 1920x1080.
+QUALITY = video_quality()
+if QUALITY == "720p":
+    TARGET_WIDTH, TARGET_HEIGHT, MAXRATE, BUFSIZE = 1280, 720, "3500k", "7000k"
+else:
+    TARGET_WIDTH, TARGET_HEIGHT, MAXRATE, BUFSIZE = 1920, 1080, "5M", "10M"
 
 
 def probe(path: Path) -> dict:
@@ -37,7 +46,7 @@ def should_transcode(meta: dict) -> bool:
     if duration <= 0:
         return False
     mb_per_min = size / 1024 / 1024 / max(duration / 60, 1)
-    return width > 1920 or height > 1080 or mb_per_min > 14
+    return width > TARGET_WIDTH or height > TARGET_HEIGHT or mb_per_min > 14
 
 
 def transcode(path: Path) -> None:
@@ -50,7 +59,7 @@ def transcode(path: Path) -> None:
         "-i",
         str(path),
         "-vf",
-        "scale='min(1920,iw)':-2:flags=lanczos",
+        f"scale='min({TARGET_WIDTH},iw)':-2:flags=lanczos",
         "-c:v",
         "libx264",
         "-preset",
@@ -58,9 +67,9 @@ def transcode(path: Path) -> None:
         "-crf",
         "22",
         "-maxrate",
-        "5M",
+        MAXRATE,
         "-bufsize",
-        "10M",
+        BUFSIZE,
         "-pix_fmt",
         "yuv420p",
         "-c:a",
@@ -71,10 +80,13 @@ def transcode(path: Path) -> None:
         "+faststart",
         str(tmp),
     ]
-    subprocess.run(cmd, check=True)
-    new_meta = probe(tmp)
+    try:
+        subprocess.run(cmd, check=True)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
     old_size = path.stat().st_size
-    new_size = tmp.stat().st_size
+    new_size = tmp.stat().st_size if tmp.exists() else 0
     if new_size <= 0 or new_size >= old_size:
         tmp.unlink(missing_ok=True)
         print(f"keep original {path.name}", flush=True)
@@ -84,15 +96,25 @@ def transcode(path: Path) -> None:
 
 
 def main() -> int:
-    files = sorted(ROOT.rglob("*.mp4"))
-    for path in files:
-        meta = probe(path)
-        if should_transcode(meta):
-            print(f"transcode {path}", flush=True)
-            transcode(path)
-        else:
-            print(f"skip {path.name}", flush=True)
-    return 0
+    if not ROOT.exists():
+        print(f"Directory {ROOT} does not exist", file=sys.stderr)
+        return 1
+
+    failed = 0
+    for path in sorted(ROOT.rglob("*.mp4")):
+        if path.name.endswith(".optimized.mp4"):
+            continue
+        try:
+            meta = probe(path)
+            if should_transcode(meta):
+                print(f"Optimizing {path.relative_to(ROOT)} to max {TARGET_WIDTH}x{TARGET_HEIGHT}...", flush=True)
+                transcode(path)
+            else:
+                print(f"Skipping {path.relative_to(ROOT)} (already optimal)", flush=True)
+        except Exception as e:
+            failed += 1
+            print(f"Error processing {path}: {e}", file=sys.stderr, flush=True)
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

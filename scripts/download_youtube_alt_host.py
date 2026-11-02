@@ -7,7 +7,11 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse, urlunparse
 
 
-YTDLP = os.environ.get("YTDLP", "yt-dlp")
+from skool_env import load_env, video_quality
+
+load_env()
+
+YTDLP = os.environ.get("YTDLP") or "yt-dlp"
 
 
 def run(cmd):
@@ -119,7 +123,11 @@ def main():
     output = Path(sys.argv[2])
     output.parent.mkdir(parents=True, exist_ok=True)
     data = extract(video_url)
-    video = pick(data["formats"], ["299", "137", "303", "298", "136"])
+    if video_quality() == "720p":
+        format_ids = ["298", "136", "299", "137", "303"]
+    else:
+        format_ids = ["299", "137", "303", "298", "136"]
+    video = pick(data["formats"], format_ids)
     audio = pick(data["formats"], ["140", "251"])
 
     tmp_video = output.with_suffix(".video." + video["ext"])

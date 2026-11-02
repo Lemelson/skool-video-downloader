@@ -1,3 +1,4 @@
+require('./load_env');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
@@ -69,32 +70,36 @@ function buildVideoIndex() {
   const index = new Map();
   if (!fs.existsSync(finalRoot)) return index;
 
-  const sections = fs.readdirSync(finalRoot, { withFileTypes: true })
-    .filter(entry => entry.isDirectory())
-    .map(entry => entry.name);
-
-  for (const section of sections) {
-    const sectionDir = path.join(finalRoot, section);
-    const files = fs.readdirSync(sectionDir, { withFileTypes: true });
-    for (const file of files) {
-      if (!file.isFile() || !/\.mp4$/i.test(file.name)) continue;
-      const match = file.name.match(/^(\d+)\s+-\s+(.+)\.mp4$/i);
-      if (!match) continue;
-      const number = match[1];
-      const title = stripDuration(match[2]);
-      index.set(`${section}\n${title.toLowerCase()}`, { number, title });
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (entry.isFile() && /\.mp4$/i.test(entry.name)) {
+        const match = entry.name.match(/^(\d+)\s+-\s+(.+)\.mp4$/i);
+        if (!match) continue;
+        const number = match[1];
+        const title = stripDuration(match[2]);
+        const sectionName = path.basename(dir);
+        index.set(`${sectionName}\n${title.toLowerCase()}`, { number, title });
+        index.set(`${title.toLowerCase()}`, { number, title });
+      }
     }
   }
+  walk(finalRoot);
   return index;
 }
 
-function destinationFor(row, resource, fallbackNumber, videoIndex) {
-  const section = row.section || 'Resources';
-  const sectionDir = path.join(finalRoot, safeName(section));
+function destinationFor(row, resource, fallbackNumber, videoIndex, courseTitle) {
+  const cTitle = safeName(courseTitle || 'Course Material');
+  const courseDir = path.join(finalRoot, cTitle);
+  const resourcesDir = path.join(courseDir, 'resources');
+  const sectionName = row.section ? safeName(row.section) : '';
+  const sectionDir = (sectionName && sectionName !== cTitle) ? path.join(resourcesDir, sectionName) : resourcesDir;
   fs.mkdirSync(sectionDir, { recursive: true });
 
   const lessonTitle = stripDuration(row.title);
-  const hit = videoIndex.get(`${section}\n${lessonTitle.toLowerCase()}`);
+  const hit = videoIndex.get(`${sectionName}\n${lessonTitle.toLowerCase()}`);
   const number = hit?.number || String(fallbackNumber).padStart(2, '0');
 
   const resourceTitle = stripPdfExt(resource.title || resource.file_name || 'Resource');
@@ -130,7 +135,7 @@ async function downloadBody(url) {
 }
 
 (async () => {
-  const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
+  const browser = await chromium.connectOverCDP(process.env.SKOOL_CDP_URL || 'http://127.0.0.1:9222');
   const context = browser.contexts()[0];
   const page = context.pages().find(p => p.url().includes('skool.com/') && p.url().includes('/classroom')) || await context.newPage();
 
@@ -145,6 +150,7 @@ async function downloadBody(url) {
   const rows = [];
   walkCourse(root, null, rows);
 
+  const mainCourseTitle = safeName(root?.course?.metadata?.title || root?.metadata?.title || 'Course Material');
   const videoIndex = buildVideoIndex();
   const pdfs = [];
   let fallbackNumber = 1;
@@ -154,7 +160,7 @@ async function downloadBody(url) {
       return resource.file_id && (/application\/pdf/i.test(resource.file_content_type || '') || /\.pdf\b/i.test(name));
     });
     for (const resource of pdfResources) {
-      const dest = destinationFor(row, resource, fallbackNumber, videoIndex);
+      const dest = destinationFor(row, resource, fallbackNumber, videoIndex, mainCourseTitle);
       pdfs.push({
         section: row.section,
         moduleId: row.id,

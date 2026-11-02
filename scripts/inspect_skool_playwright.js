@@ -1,3 +1,4 @@
+require('./load_env');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');

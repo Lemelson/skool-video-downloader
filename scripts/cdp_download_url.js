@@ -1,3 +1,4 @@
+require('./load_env');
 const fs = require('fs');
 const { chromium } = require('playwright');
 
@@ -10,7 +11,7 @@ if (!url || !out) {
 }
 
 (async () => {
-  const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
+  const browser = await chromium.connectOverCDP(process.env.SKOOL_CDP_URL || 'http://127.0.0.1:9222');
   const context = browser.contexts()[0];
   const page = await context.newPage();
   const response = await page.goto(url, { waitUntil: 'commit', timeout: 120000 });
