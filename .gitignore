@@ -23,6 +23,8 @@ __pycache__/
 *.pdf
 *.zip
 *.png
+!docs/cli-preview.png
+!docs/og-image.png
 *.jpg
 *.jpeg
 *.gif

@@ -1,6 +1,18 @@
 # Skool Video Downloader & Course Archiver
 
+<p align="left">
+  <img alt="Node.js 18+" src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white">
+  <img alt="Playwright CDP" src="https://img.shields.io/badge/Playwright-CDP-2EAD33?logo=playwright&logoColor=white">
+  <img alt="yt-dlp + ffmpeg" src="https://img.shields.io/badge/yt--dlp-ffmpeg-2563eb">
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-green"></a>
+  <a href="https://lemelson.github.io/skool-video-downloader/"><img alt="Documentation Site" src="https://img.shields.io/badge/docs-GitHub%20Pages-0ea5e9"></a>
+</p>
+
 > A command-line toolkit to **download and back up your own Skool videos, lessons, attached files, and community posts** for offline access — built on the Chrome DevTools Protocol (CDP), Playwright, `yt-dlp`, and `ffmpeg`.
+
+<p align="center">
+  <img src="docs/cli-preview.png" width="840" alt="Skool Video Downloader CLI preview showing CDP session attachment, course discovery, lesson notes and PDF backup, and 1080p yt-dlp downloads">
+</p>
 
 **Keywords:** skool downloader, download skool videos, skool video downloader, skool course downloader, backup skool classroom, archive skool community, save skool lessons offline, skool export tool.
 
